@@ -138,7 +138,7 @@ export function extractActionItems(notesText, personName) {
   // Rejects: "Target start date", "Licensing research needed", "Leo's timeline"
   function isPersonPrefix(prefix) {
     // Each segment (split by / & ,) must start with a capital letter and contain only letters/spaces
-    return /^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*(?:\s*[\/&,]\s*[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)*$/.test(prefix);
+    return /^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*(?:\s*[/&,]\s*[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)*$/.test(prefix);
   }
 
   // Returns true if an item belongs to this person (or has no clear attribution).
@@ -151,7 +151,7 @@ export function extractActionItems(notesText, personName) {
       // It's a person prefix — include only if Alex/ISC is one of the named people.
       // Match the full segment ("Alex", "Alex Scammon") not just the first word,
       // so "Alex B" (another person) does NOT match Alex Scammon.
-      const names = prefix.split(/\s*[\/&,]\s*/);
+      const names = prefix.split(/\s*[/&,]\s*/);
       return names.some(n => {
         const seg = n.trim();
         return (
@@ -190,7 +190,7 @@ export function extractActionItems(notesText, personName) {
   function isNestedHeaderForMe(headerText) {
     const base = headerText.replace(/\s*\(.*\)$/, '').trim();
     if (/^(team|everyone|all|shared|group)$/i.test(base)) return true;
-    const names = base.split(/\s*[\/&,]\s*/);
+    const names = base.split(/\s*[/&,]\s*/);
     return names.some(n => {
       const seg = n.trim();
       return (

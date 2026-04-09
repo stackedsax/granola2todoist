@@ -13,7 +13,7 @@ async function getConfig() {
   let cfg = {};
   try {
     cfg = JSON.parse(await readFile(join(homedir(), '.granola2todoist-config.json'), 'utf8'));
-  } catch {}
+  } catch { /* config file optional */ }
   return {
     todoistApiToken: process.env.TODOIST_API_TOKEN ?? cfg.todoistApiToken ?? null,
     personName:       cfg.personName       ?? 'Your Name',

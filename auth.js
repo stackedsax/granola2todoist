@@ -28,7 +28,7 @@ export async function getGranolaToken() {
     ? JSON.parse(outer.workos_tokens)
     : outer.workos_tokens;
 
-  const { access_token, refresh_token, expires_in, obtained_at } = tokens;
+  const { access_token, expires_in, obtained_at } = tokens;
 
   if (!access_token) {
     throw new Error('No access_token in workos_tokens');
