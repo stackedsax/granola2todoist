@@ -1,0 +1,13 @@
+{
+  "name": "granola2todoist",
+  "version": "1.0.0",
+  "description": "Sync Granola meeting action items to Todoist",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "todoistApiToken": "your-todoist-api-token-here",
+  "personName": "Your Name",
+  "todoistSection": "Generated Tasks",
+  "defaultProject": "Inbox",
+  "domainProjects": {
+    "@mycompany.com": "Work"
+  },
+  "calendarToProject": {
+    "My Work Calendar": "Work",
+    "Personal": "Personal"
+  }
+}
