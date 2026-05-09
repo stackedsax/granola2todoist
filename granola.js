@@ -74,6 +74,23 @@ export async function queryMeetingActionItems(authProvider, meetingId, personNam
 }
 
 /**
+ * Fetch the raw transcript for a single meeting by ID.
+ * Returns plain text, or empty string if unavailable.
+ */
+export async function getTranscript(authProvider, meetingId) {
+  const client = await createClient(authProvider);
+  try {
+    const result = await client.callTool({
+      name: 'get_meeting_transcript',
+      arguments: { meeting_id: meetingId },
+    });
+    return result?.content?.[0]?.text ?? '';
+  } finally {
+    await client.close();
+  }
+}
+
+/**
  * Parse meetings list from MCP tool response.
  *
  * The actual response is XML-like text inside content[0].text, e.g.:

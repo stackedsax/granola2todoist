@@ -1,5 +1,6 @@
 import { ensureAuthenticated } from './oauth.js';
-import { listMeetings, getMeeting, parseMeetingsList, extractActionItems, queryMeetingActionItems } from './granola.js';
+import { listMeetings, getMeeting, getTranscript, parseMeetingsList, extractActionItems } from './granola.js';
+import { extractWithClaude } from './extract.js';
 import { getProjectId, getOrCreateSection, createTask } from './todoist.js';
 import { readState, writeState } from './state.js';
 import { buildCalendarProjectMap } from './calendar.js';
@@ -21,6 +22,7 @@ async function getConfig() {
     defaultProject:   cfg.defaultProject   ?? null,
     domainProjects:   cfg.domainProjects   ?? {},   // { "@example.com": "ProjectName" }
     calendarToProject: cfg.calendarToProject ?? {},  // { "Calendar Name": "ProjectName" }
+    anthropicApiKey:  process.env.ANTHROPIC_API_KEY ?? cfg.anthropicApiKey ?? null,
   };
 }
 
@@ -144,36 +146,55 @@ async function run() {
     const title = meeting.title ?? meeting.name ?? 'Untitled';
     console.log(`\n[granola2todoist] Processing: "${title}" (${meetingId})`);
 
-    // 5. Get detailed notes
-    let notesText = '';
+    // 5. Get transcript (preferred) or notes (fallback) as extraction source
+    let sourceText = '';
+    let sourceType = 'none';
+
     try {
-      const detail = await getMeeting(authProvider, meetingId);
-      notesText = getMeetingNotes(detail);
+      const transcript = await getTranscript(authProvider, meetingId);
+      if (transcript?.trim()) {
+        sourceText = transcript;
+        sourceType = 'transcript';
+      }
     } catch (err) {
-      console.warn(`[granola2todoist] Failed to get notes for ${meetingId}: ${err.message}`);
+      console.warn(`[granola2todoist]   Transcript fetch failed: ${err.message}`);
     }
 
-    // 6. Extract action items — if the structured summary is empty:
-    //    a) trigger Enhance Notes via the Granola API so it generates in the background
-    //    b) fall back to querying the transcript directly via natural language
-    let actionItems = extractActionItems(notesText, PERSON_NAME);
-    if (actionItems.length === 0 && !notesText) {
-      console.log(`[granola2todoist]   No summary yet — triggering Enhance Notes & querying transcript`);
-      await triggerEnhanceNotes(meetingId);
+    if (!sourceText) {
       try {
-        const queryText = await queryMeetingActionItems(authProvider, meetingId, PERSON_NAME);
-        // Parse bullets from the free-form response, stripping citation links like [[0]](url)
-        actionItems = queryText
-          .split('\n')
-          .map(l => l.replace(/\[\[\d+\]\]\([^)]*\)/g, '').trim())
-          .filter(l => /^[-*•]\s+/.test(l))
-          .map(l => l.replace(/^[-*•]\s+/, '').trim())
-          .filter(Boolean);
+        const detail = await getMeeting(authProvider, meetingId);
+        const notes = getMeetingNotes(detail);
+        if (notes?.trim()) {
+          sourceText = notes;
+          sourceType = 'notes';
+        }
       } catch (err) {
-        console.warn(`[granola2todoist]   Query fallback failed: ${err.message}`);
+        console.warn(`[granola2todoist]   Notes fetch failed: ${err.message}`);
       }
     }
-    console.log(`[granola2todoist] Action items found: ${actionItems.length}`);
+
+    console.log(`[granola2todoist]   Source: ${sourceType}`);
+
+    // 6. Extract action items
+    let actionItems = [];
+
+    if (!sourceText) {
+      // Nothing available yet — trigger Enhance Notes and retry next run
+      console.log(`[granola2todoist]   No content yet — triggering Enhance Notes`);
+      await triggerEnhanceNotes(meetingId);
+    } else if (CONFIG.anthropicApiKey) {
+      try {
+        actionItems = await extractWithClaude(sourceText, PERSON_NAME, CONFIG.anthropicApiKey);
+      } catch (err) {
+        console.warn(`[granola2todoist]   Claude extraction failed, falling back to regex: ${err.message}`);
+        actionItems = extractActionItems(sourceText, PERSON_NAME);
+      }
+    } else {
+      // No Anthropic key configured — use regex parser
+      actionItems = extractActionItems(sourceText, PERSON_NAME);
+    }
+
+    console.log(`[granola2todoist]   Action items found: ${actionItems.length}`);
 
     // 7. Create Todoist tasks
     const projectName = getProjectForMeeting(meeting, calendarProjectMap);

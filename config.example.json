@@ -1,5 +1,6 @@
 {
   "todoistApiToken": "your-todoist-api-token-here",
+  "anthropicApiKey": "your-anthropic-api-key-here",
   "personName": "Your Name",
   "todoistSection": "Generated Tasks",
   "defaultProject": "Inbox",
