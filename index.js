@@ -152,9 +152,13 @@ async function run() {
 
     try {
       const transcript = await getTranscript(authProvider, meetingId);
-      if (transcript?.trim()) {
+      // Treat rate-limit or error responses as empty
+      const isError = /rate limit|error|unauthorized/i.test(transcript?.slice(0, 100) ?? '');
+      if (transcript?.trim() && !isError) {
         sourceText = transcript;
         sourceType = 'transcript';
+      } else if (isError) {
+        console.warn(`[granola2todoist]   Transcript rate-limited — falling back to notes`);
       }
     } catch (err) {
       console.warn(`[granola2todoist]   Transcript fetch failed: ${err.message}`);
@@ -184,7 +188,9 @@ async function run() {
       await triggerEnhanceNotes(meetingId);
     } else if (CONFIG.anthropicApiKey) {
       try {
-        actionItems = await extractWithClaude(sourceText, PERSON_NAME, CONFIG.anthropicApiKey);
+        actionItems = await extractWithClaude(sourceText, PERSON_NAME, CONFIG.anthropicApiKey, {
+          participants: meeting.participants ?? '',
+        });
       } catch (err) {
         console.warn(`[granola2todoist]   Claude extraction failed, falling back to regex: ${err.message}`);
         actionItems = extractActionItems(sourceText, PERSON_NAME);
@@ -214,6 +220,9 @@ async function run() {
         console.error(`[granola2todoist]   Failed to create task: ${err.message}`);
       }
     }
+
+    // Brief pause to avoid rate-limiting the Granola MCP API
+    await new Promise(r => setTimeout(r, 2000));
 
     // Track state — if 0 items and the meeting is less than 4 hours old,
     // keep it in the pending list so we re-check next run (notes may not be
